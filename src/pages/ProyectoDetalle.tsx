@@ -11,6 +11,7 @@ import {
   type Proyecto,
 } from '../lib/types'
 import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select } from '../components/ui'
+import ConectarCorreo from '../components/ConectarCorreo'
 
 function CorreoConector({
   titulo,
@@ -18,7 +19,7 @@ function CorreoConector({
   icono,
   email,
   conectado,
-  onConectar,
+  onAbrir,
   onDesconectar,
 }: {
   titulo: string
@@ -26,10 +27,9 @@ function CorreoConector({
   icono: string
   email: string
   conectado: boolean
-  onConectar: (email: string) => void
+  onAbrir: () => void
   onDesconectar: () => void
 }) {
-  const [valor, setValor] = useState(email)
   return (
     <div className="rounded-lg border border-slate-200 p-4">
       <div className="flex items-start justify-between gap-2">
@@ -48,12 +48,9 @@ function CorreoConector({
           <Button variant="ghost" onClick={onDesconectar}>Desconectar</Button>
         </div>
       ) : (
-        <div className="mt-3 flex gap-2">
-          <Input placeholder="correo@dominio.com" value={valor} onChange={(e) => setValor(e.target.value)} />
-          <Button variant="secondary" onClick={() => onConectar(valor.trim())} disabled={!valor.trim()}>
-            Conectar
-          </Button>
-        </div>
+        <Button variant="secondary" className="mt-3 w-full" onClick={onAbrir}>
+          Conectar buzón
+        </Button>
       )}
     </div>
   )
@@ -73,6 +70,7 @@ export default function ProyectoDetalle() {
   const [estado, setEstado] = useState<'todos' | EstadoFactura>('todos')
   const [fuente, setFuente] = useState<'todas' | Fuente>('todas')
   const [editando, setEditando] = useState<Proyecto | null>(null)
+  const [conectando, setConectando] = useState<'facturas' | 'dian' | null>(null)
 
   const filtradas = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -118,7 +116,7 @@ export default function ProyectoDetalle() {
           icono="📥"
           email={proyecto.correoFacturas}
           conectado={proyecto.correoFacturasConectado}
-          onConectar={(em) => saveProyecto({ ...proyecto, correoFacturas: em, correoFacturasConectado: true })}
+          onAbrir={() => setConectando('facturas')}
           onDesconectar={() => saveProyecto({ ...proyecto, correoFacturasConectado: false })}
         />
         <CorreoConector
@@ -127,10 +125,23 @@ export default function ProyectoDetalle() {
           icono="🏛️"
           email={proyecto.correoDian}
           conectado={proyecto.correoDianConectado}
-          onConectar={(em) => saveProyecto({ ...proyecto, correoDian: em, correoDianConectado: true })}
+          onAbrir={() => setConectando('dian')}
           onDesconectar={() => saveProyecto({ ...proyecto, correoDianConectado: false })}
         />
       </div>
+
+      {conectando && (
+        <ConectarCorreo
+          proyecto={proyecto}
+          tipo={conectando}
+          onClose={() => setConectando(null)}
+          onConnected={(email) => {
+            if (conectando === 'facturas') saveProyecto({ ...proyecto, correoFacturas: email, correoFacturasConectado: true })
+            else saveProyecto({ ...proyecto, correoDian: email, correoDianConectado: true })
+            setConectando(null)
+          }}
+        />
+      )}
 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">Facturas</h2>
