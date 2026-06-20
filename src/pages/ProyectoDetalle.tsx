@@ -8,13 +8,61 @@ import {
   TIPO_DOC_FE_LABELS,
   type EstadoFactura,
   type Fuente,
+  type Proyecto,
 } from '../lib/types'
-import { Badge, Button, Card, EmptyState, Input, PageHeader, Select } from '../components/ui'
+import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select } from '../components/ui'
+
+function CorreoConector({
+  titulo,
+  descripcion,
+  icono,
+  email,
+  conectado,
+  onConectar,
+  onDesconectar,
+}: {
+  titulo: string
+  descripcion: string
+  icono: string
+  email: string
+  conectado: boolean
+  onConectar: (email: string) => void
+  onDesconectar: () => void
+}) {
+  const [valor, setValor] = useState(email)
+  return (
+    <div className="rounded-lg border border-slate-200 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{icono}</span>
+          <div>
+            <div className="text-sm font-medium text-slate-800">{titulo}</div>
+            <p className="text-xs text-slate-400">{descripcion}</p>
+          </div>
+        </div>
+        <Badge tone={conectado ? 'ok' : 'default'}>{conectado ? 'Conectado' : 'Sin conectar'}</Badge>
+      </div>
+      {conectado ? (
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="truncate text-sm text-slate-700">{email}</span>
+          <Button variant="ghost" onClick={onDesconectar}>Desconectar</Button>
+        </div>
+      ) : (
+        <div className="mt-3 flex gap-2">
+          <Input placeholder="correo@dominio.com" value={valor} onChange={(e) => setValor(e.target.value)} />
+          <Button variant="secondary" onClick={() => onConectar(valor.trim())} disabled={!valor.trim()}>
+            Conectar
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function ProyectoDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { proyectoById, facturasDe } = useAppData()
+  const { proyectoById, facturasDe, saveProyecto, deleteProyecto } = useAppData()
 
   const proyecto = id ? proyectoById(id) : undefined
   const todas = id ? facturasDe(id) : []
@@ -24,6 +72,7 @@ export default function ProyectoDetalle() {
   const [hasta, setHasta] = useState('')
   const [estado, setEstado] = useState<'todos' | EstadoFactura>('todos')
   const [fuente, setFuente] = useState<'todas' | Fuente>('todas')
+  const [editando, setEditando] = useState<Proyecto | null>(null)
 
   const filtradas = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -33,22 +82,14 @@ export default function ProyectoDetalle() {
         if (fuente !== 'todas' && f.fuente !== fuente) return false
         if (desde && f.fechaEmision < desde) return false
         if (hasta && f.fechaEmision > hasta) return false
-        if (term) {
-          const hay = `${f.emisorNombre} ${f.emisorNit} ${f.numero} ${f.prefijo ?? ''} ${f.cufe} ${f.total}`.toLowerCase()
-          if (!hay.includes(term)) return false
-        }
+        if (term && !`${f.emisorNombre} ${f.emisorNit} ${f.numero} ${f.prefijo ?? ''} ${f.cufe} ${f.total}`.toLowerCase().includes(term)) return false
         return true
       })
       .sort((a, b) => (b.fechaEmision > a.fechaEmision ? 1 : b.fechaEmision < a.fechaEmision ? -1 : 0))
   }, [todas, q, desde, hasta, estado, fuente])
 
   if (!proyecto) {
-    return (
-      <EmptyState
-        title="Proyecto no encontrado"
-        action={<Link to="/proyectos"><Button>Volver a proyectos</Button></Link>}
-      />
-    )
+    return <EmptyState title="Proyecto no encontrado" action={<Link to="/"><Button>Volver</Button></Link>} />
   }
 
   const totalFiltrado = filtradas.reduce((s, f) => s + f.total, 0)
@@ -60,56 +101,74 @@ export default function ProyectoDetalle() {
         subtitle={`${proyecto.tipoDocumento} ${proyecto.identificacion}${proyecto.dv ? `-${proyecto.dv}` : ''}`}
         actions={
           <>
-            <Button variant="secondary" onClick={() => navigate('/proyectos')}>← Proyectos</Button>
-            <Button variant="secondary" title="Disponible al conectar el pipeline real">⟳ Barrer DIAN</Button>
+            <Button variant="secondary" onClick={() => navigate('/')}>← Proyectos</Button>
+            <Button variant="secondary" onClick={() => setEditando({ ...proyecto })}>Editar</Button>
+            <Link to={`/proyectos/${proyecto.id}/subir`}>
+              <Button>＋ Subir factura</Button>
+            </Link>
           </>
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Badge tone={proyecto.gmailConectado ? 'dian' : 'default'}>
-          {proyecto.gmailConectado ? `Gmail: ${proyecto.gmailCuenta}` : 'Gmail sin conectar'}
-        </Badge>
-        {!proyecto.gmailConectado && (
-          <span className="text-xs text-amber-600">Conéctalo en “Editar proyecto” para capturar correos.</span>
-        )}
+      {/* Correos del proyecto */}
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <CorreoConector
+          titulo="Correo de facturas"
+          descripcion="Buzón donde llegan las facturas de proveedores. Se lee para capturarlas."
+          icono="📥"
+          email={proyecto.correoFacturas}
+          conectado={proyecto.correoFacturasConectado}
+          onConectar={(em) => saveProyecto({ ...proyecto, correoFacturas: em, correoFacturasConectado: true })}
+          onDesconectar={() => saveProyecto({ ...proyecto, correoFacturasConectado: false })}
+        />
+        <CorreoConector
+          titulo="Correo para token DIAN"
+          descripcion="Donde la DIAN envía el código de un solo uso al consultar el portal."
+          icono="🏛️"
+          email={proyecto.correoDian}
+          conectado={proyecto.correoDianConectado}
+          onConectar={(em) => saveProyecto({ ...proyecto, correoDian: em, correoDianConectado: true })}
+          onDesconectar={() => saveProyecto({ ...proyecto, correoDianConectado: false })}
+        />
+      </div>
+
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-900">Facturas</h2>
+        <Button variant="secondary" title="Disponible al conectar el pipeline real">⟳ Barrer DIAN</Button>
       </div>
 
       {/* Filtros */}
       <Card className="mb-4 p-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <div className="col-span-2 sm:col-span-3 lg:col-span-1">
-            <Input placeholder="Buscar emisor, NIT, número, CUFE…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input placeholder="Buscar emisor, NIT, CUFE…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} title="Desde" />
-          <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} title="Hasta" />
+          <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+          <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
           <Select value={estado} onChange={(e) => setEstado(e.target.value as 'todos' | EstadoFactura)}>
             <option value="todos">Todos los estados</option>
-            {Object.entries(ESTADO_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
+            {Object.entries(ESTADO_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
           </Select>
           <Select value={fuente} onChange={(e) => setFuente(e.target.value as 'todas' | Fuente)}>
             <option value="todas">Toda fuente</option>
-            {Object.entries(FUENTE_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
+            {Object.entries(FUENTE_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
           </Select>
         </div>
         <div className="mt-3 flex items-center justify-between text-sm text-slate-500">
           <span>{filtradas.length} de {todas.length} facturas</span>
-          <span>Total filtrado: <span className="font-semibold text-slate-800">{formatCOP(totalFiltrado)}</span></span>
+          <span>Total: <span className="font-semibold text-slate-800">{formatCOP(totalFiltrado)}</span></span>
         </div>
       </Card>
 
       {filtradas.length === 0 ? (
         <EmptyState
-          title={todas.length === 0 ? 'Aún no hay facturas capturadas' : 'Ningún resultado con esos filtros'}
+          title={todas.length === 0 ? 'Aún no hay facturas' : 'Sin resultados'}
           description={
             todas.length === 0
-              ? 'Cuando lleguen correos con factura o corra la barrida DIAN, aparecerán aquí.'
-              : 'Ajusta o limpia los filtros.'
+              ? 'Sube una factura o conecta el correo para capturarlas automáticamente.'
+              : 'Ajusta los filtros.'
           }
+          action={todas.length === 0 ? <Link to={`/proyectos/${proyecto.id}/subir`}><Button>＋ Subir factura</Button></Link> : undefined}
         />
       ) : (
         <Card className="overflow-hidden">
@@ -127,11 +186,7 @@ export default function ProyectoDetalle() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtradas.map((f) => (
-                  <tr
-                    key={f.id}
-                    className="cursor-pointer hover:bg-slate-50"
-                    onClick={() => navigate(`/facturas/${f.id}`)}
-                  >
+                  <tr key={f.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/facturas/${f.id}`)}>
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatFecha(f.fechaEmision)}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-900">{f.emisorNombre}</div>
@@ -150,6 +205,44 @@ export default function ProyectoDetalle() {
             </table>
           </div>
         </Card>
+      )}
+
+      {/* Editar datos básicos */}
+      {editando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <Card className="w-full max-w-lg p-6">
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Editar proyecto</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Nombre" required className="col-span-2">
+                <Input value={editando.nombre} onChange={(e) => setEditando({ ...editando, nombre: e.target.value })} />
+              </Field>
+              <Field label="Tipo">
+                <Select value={editando.tipoDocumento} onChange={(e) => setEditando({ ...editando, tipoDocumento: e.target.value as Proyecto['tipoDocumento'] })}>
+                  <option value="NIT">NIT</option>
+                  <option value="CC">Cédula</option>
+                  <option value="CE">Cédula extranjería</option>
+                </Select>
+              </Field>
+              <Field label="Identificación" required>
+                <Input value={editando.identificacion} onChange={(e) => setEditando({ ...editando, identificacion: e.target.value })} />
+              </Field>
+            </div>
+            <div className="mt-6 flex items-center justify-between">
+              <button
+                className="text-xs text-slate-400 hover:text-red-500"
+                onClick={() => { if (confirm(`¿Eliminar ${editando.nombre} y sus facturas?`)) void deleteProyecto(editando.id).then(() => navigate('/')) }}
+              >
+                Eliminar proyecto
+              </button>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setEditando(null)}>Cancelar</Button>
+                <Button onClick={() => { void saveProyecto(editando); setEditando(null) }} disabled={!editando.nombre.trim() || !editando.identificacion.trim()}>
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   )

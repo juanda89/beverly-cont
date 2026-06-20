@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { useAppData } from '../state/AppData'
-import { getSheetsUrl, setSheetsUrl } from '../lib/storage'
 import { Badge, Button, Card, Field, Input, PageHeader } from '../components/ui'
 
-function Pendiente({ titulo, estado, children }: { titulo: string; estado: 'pendiente' | 'listo'; children: React.ReactNode }) {
+function Pendiente({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-3 border-b border-slate-100 py-3 last:border-0">
-      <span className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${estado === 'listo' ? 'bg-green-500' : 'bg-amber-400'}`} />
+      <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400" />
       <div>
         <div className="text-sm font-medium text-slate-800">{titulo}</div>
         <div className="text-sm text-slate-500">{children}</div>
@@ -16,71 +15,66 @@ function Pendiente({ titulo, estado, children }: { titulo: string; estado: 'pend
 }
 
 export default function Configuracion() {
-  const { storeKind } = useAppData()
-  const [sheetsUrl, setSheetsUrlState] = useState(getSheetsUrl() ?? '')
+  const { cuentaGoogle, conectarGoogle, desconectarGoogle } = useAppData()
+  const [email, setEmail] = useState('')
 
-  function conectar() {
-    setSheetsUrl(sheetsUrl.trim() || null)
-    window.location.reload()
-  }
-  function desconectar() {
-    setSheetsUrl(null)
-    window.location.reload()
-  }
   function reiniciarDemo() {
     if (!confirm('¿Borrar los datos de prueba y volver a sembrarlos?')) return
     localStorage.removeItem('recepcion.proyectos')
     localStorage.removeItem('recepcion.facturas')
-    window.location.reload()
+    window.location.href = '/'
   }
 
   return (
     <div>
-      <PageHeader title="Configuración" subtitle="Almacenamiento, integraciones y datos de prueba" />
+      <PageHeader title="Configuración" subtitle="Cuenta, integraciones y datos de prueba" />
 
       <div className="space-y-6">
-        {/* Almacenamiento */}
+        {/* Cuenta de Google */}
         <Card className="p-6">
           <div className="mb-1 flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-slate-900">Almacenamiento</h2>
-            <Badge tone={storeKind === 'sheets' ? 'ok' : 'default'}>
-              {storeKind === 'sheets' ? 'Google Sheets' : 'Demo local'}
+            <h2 className="text-lg font-semibold text-slate-900">Cuenta de Google</h2>
+            <Badge tone={cuentaGoogle.conectada ? 'ok' : 'default'}>
+              {cuentaGoogle.conectada ? 'Conectada' : 'Sin conectar'}
             </Badge>
           </div>
           <p className="mb-4 text-sm text-slate-500">
-            Modelo objetivo (PRD §11.1): la app crea, en el Google Drive de cada contador, una carpeta propia con
-            una hoja por proyecto/cliente. Hoy corre en modo demo (datos de prueba en este navegador).
+            Tus proyectos y facturas se guardan en una carpeta de tu Google Drive (1 carpeta por
+            contador, 1 hoja por cliente). Es obligatoria para usar la herramienta.
           </p>
-          <Field label="URL del Apps Script (Web App)" hint="Se habilita al conectar el backend real de Sheets/Drive.">
-            <Input
-              placeholder="https://script.google.com/macros/s/AKfy.../exec"
-              value={sheetsUrl}
-              onChange={(e) => setSheetsUrlState(e.target.value)}
-            />
-          </Field>
-          <div className="mt-4 flex items-center gap-2">
-            <Button onClick={conectar} disabled={!sheetsUrl.trim()}>Conectar</Button>
-            {storeKind === 'sheets' && <Button variant="secondary" onClick={desconectar}>Desconectar</Button>}
-            <Button variant="ghost" className="ml-auto" onClick={reiniciarDemo}>↻ Reiniciar datos demo</Button>
-          </div>
+          {cuentaGoogle.conectada ? (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-700">✓ {cuentaGoogle.email}</span>
+              <Button variant="secondary" onClick={desconectarGoogle}>Desconectar</Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input type="email" placeholder="contador@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Button onClick={() => conectarGoogle(email.trim() || undefined)}>Conectar con Google</Button>
+            </div>
+          )}
         </Card>
 
-        {/* Fase 0 — integraciones pendientes */}
+        {/* Fase 0 */}
         <Card className="p-6">
-          <h2 className="mb-1 text-lg font-semibold text-slate-900">Integraciones (Fase 0 — pendientes)</h2>
-          <p className="mb-2 text-sm text-slate-500">Lo que falta para conectar el pipeline real de captura y conciliación.</p>
-          <Pendiente titulo="OpenRouter (clasificador + OCR doble)" estado="pendiente">
-            API key + IDs de modelo (DeepSeek-OCR y Gemini). Habilita la lectura automática de facturas.
+          <h2 className="mb-1 text-lg font-semibold text-slate-900">Integraciones (pendientes)</h2>
+          <p className="mb-2 text-sm text-slate-500">Lo que falta para el pipeline real de captura y conciliación.</p>
+          <Pendiente titulo="OpenRouter (clasificador + OCR doble)">
+            API key + IDs de modelo. Habilita la lectura automática de facturas. <span className="text-green-600">Ya integrado en /api/ocr.</span>
           </Pendiente>
-          <Pendiente titulo="Google OAuth + verificación de Gmail" estado="pendiente">
-            Proyecto Google Cloud, consentimiento OAuth y verificación de seguridad (CASA). ⏱️ Es el de mayor tiempo: arrancar ya.
+          <Pendiente titulo="Google OAuth + verificación de Gmail (CASA)">
+            Para leer el correo de facturas y el token de la DIAN. ⏱️ Es el de mayor tiempo: arrancar ya.
           </Pendiente>
-          <Pendiente titulo="Proveedor DIAN (Opción A)" estado="pendiente">
-            Alanube / Dataico / Factus / recepción de Alegra. Habilita la barrida semanal sin CAPTCHA.
+          <Pendiente titulo="Worker DIAN asistido (Playwright)">
+            Login al portal + token desde Gmail; el contador resuelve el CAPTCHA en sesión visible.
           </Pendiente>
-          <Pendiente titulo="Worker DIAN asistido (Opción B, fallback)" estado="pendiente">
-            Node + Playwright; el contador resuelve el CAPTCHA en sesión visible.
-          </Pendiente>
+        </Card>
+
+        {/* Demo */}
+        <Card className="p-6">
+          <h2 className="mb-1 text-lg font-semibold text-slate-900">Datos de prueba</h2>
+          <p className="mb-3 text-sm text-slate-500">La app corre en modo demo con datos sembrados localmente.</p>
+          <Button variant="secondary" onClick={reiniciarDemo}>↻ Reiniciar datos demo</Button>
         </Card>
       </div>
     </div>

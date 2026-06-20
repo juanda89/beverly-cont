@@ -1,6 +1,5 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
 import { useAppData } from './state/AppData'
-import Dashboard from './pages/Dashboard'
 import Proyectos from './pages/Proyectos'
 import ProyectoDetalle from './pages/ProyectoDetalle'
 import FacturaRevision from './pages/FacturaRevision'
@@ -8,14 +7,12 @@ import SubirFactura from './pages/SubirFactura'
 import Configuracion from './pages/Configuracion'
 
 const navItems = [
-  { to: '/', label: 'Inicio', icon: '🏠', end: true },
-  { to: '/proyectos', label: 'Proyectos', icon: '🏢' },
-  { to: '/subir', label: 'Subir factura', icon: '📤' },
+  { to: '/', label: 'Proyectos', icon: '🏢', end: true },
   { to: '/configuracion', label: 'Configuración', icon: '⚙️' },
 ]
 
 function Sidebar() {
-  const { storeKind } = useAppData()
+  const { cuentaGoogle } = useAppData()
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
       <div className="flex items-center gap-2 px-5 py-5">
@@ -45,9 +42,11 @@ function Sidebar() {
         ))}
       </nav>
       <div className="border-t border-slate-100 px-4 py-3">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className={`h-2 w-2 rounded-full ${storeKind === 'sheets' ? 'bg-green-500' : 'bg-amber-400'}`} />
-          {storeKind === 'sheets' ? 'Google Sheets' : 'Demo (datos de prueba)'}
+        <div className="flex items-center gap-2 text-xs">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${cuentaGoogle.conectada ? 'bg-green-500' : 'bg-slate-300'}`} />
+          <span className="truncate text-slate-500">
+            {cuentaGoogle.conectada ? cuentaGoogle.email : 'Google sin conectar'}
+          </span>
         </div>
       </div>
     </aside>
@@ -71,11 +70,10 @@ export default function App() {
             <div className="flex items-center justify-center py-24 text-slate-400">Cargando…</div>
           ) : (
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/proyectos" element={<Proyectos />} />
+              <Route path="/" element={<Proyectos />} />
               <Route path="/proyectos/:id" element={<ProyectoDetalle />} />
+              <Route path="/proyectos/:id/subir" element={<SubirFactura />} />
               <Route path="/facturas/:id" element={<FacturaRevision />} />
-              <Route path="/subir" element={<SubirFactura />} />
               <Route path="/configuracion" element={<Configuracion />} />
             </Routes>
           )}

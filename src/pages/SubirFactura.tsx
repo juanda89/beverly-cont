@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAppData } from '../state/AppData'
 import { formatCOP, hoyISO } from '../lib/format'
 import {
@@ -9,7 +9,7 @@ import {
   type LecturaModelo,
   type TipoDocumentoFE,
 } from '../lib/types'
-import { Badge, Button, Card, Field, PageHeader, Select } from '../components/ui'
+import { Badge, Button, Card, EmptyState, PageHeader } from '../components/ui'
 
 interface ResultadoOCR {
   modeloA: LecturaModelo
@@ -35,9 +35,12 @@ function fmt(k: string, v: unknown): string {
 }
 
 export default function SubirFactura() {
+  const { id } = useParams()
   const navigate = useNavigate()
-  const { proyectos, saveFactura } = useAppData()
+  const { proyectoById, saveFactura } = useAppData()
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const proyecto = id ? proyectoById(id) : undefined
 
   const [preview, setPreview] = useState<string | null>(null)
   const [dataBase64, setDataBase64] = useState<string | null>(null)
@@ -46,7 +49,10 @@ export default function SubirFactura() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ResultadoOCR | null>(null)
-  const [proyectoId, setProyectoId] = useState(proyectos[0]?.id ?? '')
+
+  if (!proyecto) {
+    return <EmptyState title="Proyecto no encontrado" action={<Link to="/"><Button>Volver</Button></Link>} />
+  }
 
   function onFile(file: File) {
     setError(null)
@@ -84,11 +90,11 @@ export default function SubirFactura() {
   }
 
   async function guardar() {
-    if (!result || !proyectoId) return
+    if (!result || !proyecto) return
     const c = result.consolidado
     const factura: FacturaRecibida = {
       id: crypto.randomUUID(),
-      proyectoId,
+      proyectoId: proyecto.id,
       fuente: 'correo',
       estado: c.estado,
       cufe: c.cufe || '',
@@ -122,46 +128,33 @@ export default function SubirFactura() {
 
   return (
     <div>
-      <PageHeader title="Subir factura" subtitle="Extracción automática con dos modelos de IA" />
+      <PageHeader
+        title="Subir factura"
+        subtitle={proyecto.nombre}
+        actions={<Button variant="secondary" onClick={() => navigate(`/proyectos/${proyecto.id}`)}>← Volver al proyecto</Button>}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Columna izquierda: carga */}
         <div className="space-y-4">
           <Card className="p-5">
             <div
               onClick={() => inputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault()
-                const f = e.dataTransfer.files?.[0]
-                if (f) onFile(f)
-              }}
+              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) onFile(f) }}
               className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 px-6 py-10 text-center hover:border-brand-400 hover:bg-brand-50/40"
             >
               <div className="text-3xl">📄</div>
-              <p className="mt-2 text-sm font-medium text-slate-700">
-                Arrastra una factura o haz clic para elegir
-              </p>
+              <p className="mt-2 text-sm font-medium text-slate-700">Arrastra una factura o haz clic para elegir</p>
               <p className="text-xs text-slate-400">PDF, JPG o PNG</p>
-              <input
-                ref={inputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) onFile(f)
-                }}
-              />
+              <input ref={inputRef} type="file" accept="image/*,application/pdf" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f) }} />
             </div>
 
             {preview && (
               <div className="mt-4">
                 <div className="mb-2 text-xs text-slate-500">{fileName}</div>
                 {mimeType === 'application/pdf' ? (
-                  <div className="rounded-lg bg-slate-100 px-4 py-6 text-center text-sm text-slate-500">
-                    📑 PDF cargado
-                  </div>
+                  <div className="rounded-lg bg-slate-100 px-4 py-6 text-center text-sm text-slate-500">📑 PDF cargado</div>
                 ) : (
                   <img src={preview} alt="preview" className="max-h-72 rounded-lg border border-slate-200" />
                 )}
@@ -171,26 +164,16 @@ export default function SubirFactura() {
               </div>
             )}
           </Card>
-
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+          {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         </div>
 
-        {/* Columna derecha: resultado */}
         <div className="space-y-4">
           {!result && !loading && (
             <Card className="flex h-full items-center justify-center p-10 text-center text-sm text-slate-400">
               Los datos extraídos aparecerán aquí.
             </Card>
           )}
-          {loading && (
-            <Card className="flex h-full items-center justify-center p-10 text-sm text-slate-400">
-              Consultando los modelos…
-            </Card>
-          )}
+          {loading && <Card className="flex h-full items-center justify-center p-10 text-sm text-slate-400">Consultando los modelos…</Card>}
 
           {result && (
             <>
@@ -211,23 +194,16 @@ export default function SubirFactura() {
                     ))}
                   </tbody>
                 </table>
-                <p className="mt-3 text-xs text-slate-400">
-                  Modelos: {result.modelos.a} · {result.modelos.b}
-                </p>
+                <p className="mt-3 text-xs text-slate-400">Modelos: {result.modelos.a} · {result.modelos.b}</p>
               </Card>
 
-              {/* A vs B si hay discrepancia */}
               {!result.consolidado.concordanciaOcr && (
                 <Card className="border-amber-200 p-5">
-                  <h3 className="mb-2 text-sm font-semibold text-amber-700">
-                    ⚠️ Discrepancia entre modelos — revisa los campos resaltados
-                  </h3>
+                  <h3 className="mb-2 text-sm font-semibold text-amber-700">⚠️ Discrepancia entre modelos</h3>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-xs uppercase text-slate-400">
-                        <th className="py-1 pr-3 font-medium">Campo</th>
-                        <th className="py-1 pr-3 font-medium">Modelo A</th>
-                        <th className="py-1 font-medium">Modelo B</th>
+                        <th className="py-1 pr-3 font-medium">Campo</th><th className="py-1 pr-3 font-medium">Modelo A</th><th className="py-1 font-medium">Modelo B</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -243,20 +219,7 @@ export default function SubirFactura() {
                 </Card>
               )}
 
-              {/* Guardar en proyecto */}
-              <Card className="p-5">
-                <Field label="Guardar en proyecto">
-                  <Select value={proyectoId} onChange={(e) => setProyectoId(e.target.value)}>
-                    {proyectos.length === 0 && <option value="">— Crea un proyecto primero —</option>}
-                    {proyectos.map((p) => (
-                      <option key={p.id} value={p.id}>{p.nombre}</option>
-                    ))}
-                  </Select>
-                </Field>
-                <Button className="mt-3 w-full" onClick={guardar} disabled={!proyectoId}>
-                  Guardar factura
-                </Button>
-              </Card>
+              <Button className="w-full" onClick={guardar}>Guardar en {proyecto.nombre}</Button>
             </>
           )}
         </div>

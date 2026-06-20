@@ -9,11 +9,12 @@ export interface Proyecto {
   tipoDocumento: TipoDocEmpresa
   identificacion: string // NIT de la empresa (para la DIAN)
   dv?: string
-  // Conexión de correo (Gmail) — solo lectura
-  gmailConectado: boolean
-  gmailCuenta?: string
-  // DIAN
-  dianProveedor?: string // proveedor API (Opción A) si aplica
+  // Correo donde LLEGAN las facturas (Gmail, lectura por OAuth)
+  correoFacturas: string
+  correoFacturasConectado: boolean
+  // Correo donde la DIAN envía el token de un solo uso (puede ser el mismo)
+  correoDian: string
+  correoDianConectado: boolean
   creadoEn: string
 }
 

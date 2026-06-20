@@ -12,10 +12,29 @@ import type { FacturaRecibida, Proyecto } from '../lib/types'
 import { createStore, type DataStore } from '../lib/storage'
 import { MOCK_FACTURAS, MOCK_PROYECTOS } from '../lib/mock'
 
+export interface CuentaGoogle {
+  conectada: boolean
+  email: string
+}
+
+const K_CUENTA = 'recepcion.cuentaGoogle'
+
+function leerCuenta(): CuentaGoogle {
+  try {
+    const raw = localStorage.getItem(K_CUENTA)
+    return raw ? (JSON.parse(raw) as CuentaGoogle) : { conectada: false, email: '' }
+  } catch {
+    return { conectada: false, email: '' }
+  }
+}
+
 interface AppDataValue {
   loading: boolean
   error: string | null
   storeKind: 'local' | 'sheets'
+  cuentaGoogle: CuentaGoogle
+  conectarGoogle: (email?: string) => void
+  desconectarGoogle: () => void
   proyectos: Proyecto[]
   facturas: FacturaRecibida[]
   reload: () => Promise<void>
@@ -38,6 +57,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [facturas, setFacturas] = useState<FacturaRecibida[]>([])
+  const [cuentaGoogle, setCuentaGoogle] = useState<CuentaGoogle>(() => leerCuenta())
+
+  const conectarGoogle = useCallback((email?: string) => {
+    const cuenta = { conectada: true, email: email || 'contador@gmail.com' }
+    localStorage.setItem(K_CUENTA, JSON.stringify(cuenta))
+    setCuentaGoogle(cuenta)
+  }, [])
+
+  const desconectarGoogle = useCallback(() => {
+    const cuenta = { conectada: false, email: '' }
+    localStorage.setItem(K_CUENTA, JSON.stringify(cuenta))
+    setCuentaGoogle(cuenta)
+  }, [])
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -130,6 +162,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       storeKind: store.kind,
+      cuentaGoogle,
+      conectarGoogle,
+      desconectarGoogle,
       proyectos,
       facturas,
       reload,
@@ -140,7 +175,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       proyectoById,
       facturasDe,
     }),
-    [loading, error, store.kind, proyectos, facturas, reload, saveProyecto, deleteProyecto, saveFactura, deleteFactura, proyectoById, facturasDe],
+    [loading, error, store.kind, cuentaGoogle, conectarGoogle, desconectarGoogle, proyectos, facturas, reload, saveProyecto, deleteProyecto, saveFactura, deleteFactura, proyectoById, facturasDe],
   )
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>

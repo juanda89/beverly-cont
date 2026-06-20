@@ -17,7 +17,8 @@ var SHEET_ID = '' // vacío = usa la hoja que contiene este script
 
 var PROYECTO_COLS = [
   'id', 'nombre', 'tipoDocumento', 'identificacion', 'dv',
-  'gmailConectado', 'gmailCuenta', 'dianProveedor', 'creadoEn', 'tabName',
+  'correoFacturas', 'correoFacturasConectado', 'correoDian', 'correoDianConectado',
+  'creadoEn', 'tabName',
 ]
 
 // Esquema §11.2 (campos anidados se guardan como JSON).
@@ -108,8 +109,10 @@ function listProyectos() {
       id: String(o.id), nombre: o.nombre, tipoDocumento: o.tipoDocumento || 'NIT',
       identificacion: String(o.identificacion == null ? '' : o.identificacion),
       dv: o.dv === '' ? '' : String(o.dv),
-      gmailConectado: o.gmailConectado === true || o.gmailConectado === 'TRUE',
-      gmailCuenta: o.gmailCuenta || '', dianProveedor: o.dianProveedor || '',
+      correoFacturas: o.correoFacturas || '',
+      correoFacturasConectado: o.correoFacturasConectado === true || o.correoFacturasConectado === 'TRUE',
+      correoDian: o.correoDian || '',
+      correoDianConectado: o.correoDianConectado === true || o.correoDianConectado === 'TRUE',
       creadoEn: o.creadoEn || '',
     }
   })
@@ -124,9 +127,9 @@ function saveProyecto(p) {
   var tabName = (match && match.tabName) ? match.tabName : sanitizeTab(p.nombre, p.id)
   var record = {
     id: p.id, nombre: p.nombre, tipoDocumento: p.tipoDocumento, identificacion: p.identificacion,
-    dv: p.dv || '', gmailConectado: !!p.gmailConectado, gmailCuenta: p.gmailCuenta || '',
-    dianProveedor: p.dianProveedor || '', creadoEn: p.creadoEn || new Date().toISOString(),
-    tabName: tabName,
+    dv: p.dv || '', correoFacturas: p.correoFacturas || '', correoFacturasConectado: !!p.correoFacturasConectado,
+    correoDian: p.correoDian || '', correoDianConectado: !!p.correoDianConectado,
+    creadoEn: p.creadoEn || new Date().toISOString(), tabName: tabName,
   }
   upsertRow(sh, PROYECTO_COLS, record)
   getSheet(tabName, FACTURA_COLS) // asegura la pestaña de facturas
