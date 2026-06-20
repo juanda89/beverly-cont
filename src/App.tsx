@@ -4,11 +4,13 @@ import Dashboard from './pages/Dashboard'
 import Proyectos from './pages/Proyectos'
 import ProyectoDetalle from './pages/ProyectoDetalle'
 import FacturaRevision from './pages/FacturaRevision'
+import SubirFactura from './pages/SubirFactura'
 import Configuracion from './pages/Configuracion'
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: '🏠', end: true },
   { to: '/proyectos', label: 'Proyectos', icon: '🏢' },
+  { to: '/subir', label: 'Subir factura', icon: '📤' },
   { to: '/configuracion', label: 'Configuración', icon: '⚙️' },
 ]
 
@@ -73,6 +75,7 @@ export default function App() {
               <Route path="/proyectos" element={<Proyectos />} />
               <Route path="/proyectos/:id" element={<ProyectoDetalle />} />
               <Route path="/facturas/:id" element={<FacturaRevision />} />
+              <Route path="/subir" element={<SubirFactura />} />
               <Route path="/configuracion" element={<Configuracion />} />
             </Routes>
           )}
