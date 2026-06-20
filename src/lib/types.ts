@@ -15,6 +15,8 @@ export interface Proyecto {
   // Correo donde la DIAN envía el token de un solo uso (puede ser el mismo)
   correoDian: string
   correoDianConectado: boolean
+  // ID del archivo Google Sheets del cliente (creado en el Drive del contador)
+  spreadsheetId?: string
   creadoEn: string
 }
 

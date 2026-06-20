@@ -9,7 +9,6 @@ const SCOPE = [
   'https://www.googleapis.com/auth/userinfo.profile',
 ].join(' ')
 
-// Tipos mínimos de GIS (evita depender de @types).
 interface TokenClient {
   callback: (resp: { access_token?: string; error?: string }) => void
   requestAccessToken: (opts?: { prompt?: string }) => void
@@ -51,9 +50,7 @@ async function initClient(clientId: string): Promise<void> {
   })
 }
 
-/** Lanza el consentimiento de Google y devuelve un access token. */
-export async function conectar(clientId: string): Promise<string> {
-  await initClient(clientId)
+function pedirToken(prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
     tokenClient!.callback = (resp) => {
       if (resp.error || !resp.access_token) reject(new Error(resp.error || 'Conexión cancelada'))
@@ -62,8 +59,20 @@ export async function conectar(clientId: string): Promise<string> {
         resolve(resp.access_token)
       }
     }
-    tokenClient!.requestAccessToken({ prompt: 'consent' })
+    tokenClient!.requestAccessToken({ prompt })
   })
+}
+
+/** Lanza el consentimiento de Google y devuelve un access token. */
+export async function conectar(clientId: string): Promise<string> {
+  await initClient(clientId)
+  return pedirToken('consent')
+}
+
+/** Devuelve un token válido; si no hay, lo pide en silencio (sin re-consentir). */
+export async function ensureToken(clientId: string): Promise<string> {
+  await initClient(clientId)
+  return accessToken || pedirToken('')
 }
 
 export function getToken(): string | null {
@@ -98,11 +107,18 @@ export async function ensureCarpeta(token: string, nombre: string): Promise<stri
   return created.id
 }
 
-/** Crea una hoja de cálculo para un cliente dentro de la carpeta. Devuelve su id. */
+const ENCABEZADOS = [
+  'ID', 'Fuente', 'Estado', 'CUFE', 'Tipo', 'Prefijo', 'Número', 'Emisor', 'NIT emisor',
+  'Adquirente', 'NIT adquirente', 'Fecha emisión', 'Fecha recepción', 'Moneda',
+  'Subtotal', 'IVA', 'Otros impuestos', 'Total', 'Estado DIAN', 'Concordancia OCR',
+  'Creado', 'Actualizado',
+]
+
+/** Crea la hoja de cálculo de un cliente dentro de la carpeta, con encabezados. */
 export async function crearSheetCliente(token: string, folderId: string, nombre: string): Promise<string> {
   const ss = await gfetch('https://sheets.googleapis.com/v4/spreadsheets', token, {
     method: 'POST',
-    body: JSON.stringify({ properties: { title: nombre } }),
+    body: JSON.stringify({ properties: { title: nombre }, sheets: [{ properties: { title: 'Facturas' } }] }),
   })
   const id = ss.spreadsheetId as string
   // mover a la carpeta del contador
@@ -110,5 +126,11 @@ export async function crearSheetCliente(token: string, folderId: string, nombre:
     method: 'PATCH',
     body: JSON.stringify({}),
   })
+  // escribir encabezados
+  await gfetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/Facturas!A1?valueInputOption=RAW`,
+    token,
+    { method: 'PUT', body: JSON.stringify({ values: [ENCABEZADOS] }) },
+  )
   return id
 }

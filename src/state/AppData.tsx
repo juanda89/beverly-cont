@@ -11,7 +11,7 @@ import {
 import type { FacturaRecibida, Proyecto } from '../lib/types'
 import { createStore, type DataStore } from '../lib/storage'
 import { MOCK_FACTURAS, MOCK_PROYECTOS } from '../lib/mock'
-import { conectar as conectarGis, ensureCarpeta, getEmail } from '../lib/google'
+import { conectar as conectarGis, ensureCarpeta, ensureToken, getEmail, getToken } from '../lib/google'
 
 export interface CuentaGoogle {
   conectada: boolean
@@ -37,6 +37,7 @@ interface AppDataValue {
   cuentaGoogle: CuentaGoogle
   conectarGoogle: () => Promise<void>
   desconectarGoogle: () => void
+  obtenerTokenGoogle: () => Promise<string>
   proyectos: Proyecto[]
   facturas: FacturaRecibida[]
   reload: () => Promise<void>
@@ -76,6 +77,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const cuenta = { conectada: false, email: '' }
     localStorage.setItem(K_CUENTA, JSON.stringify(cuenta))
     setCuentaGoogle(cuenta)
+  }, [])
+
+  const obtenerTokenGoogle = useCallback(async () => {
+    const existente = getToken()
+    if (existente) return existente
+    const cfg = await fetch('/api/config').then((r) => r.json())
+    if (!cfg.googleClientId) throw new Error('Falta GOOGLE_CLIENT_ID en el servidor')
+    return ensureToken(cfg.googleClientId)
   }, [])
 
   const reload = useCallback(async () => {
@@ -172,6 +181,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       cuentaGoogle,
       conectarGoogle,
       desconectarGoogle,
+      obtenerTokenGoogle,
       proyectos,
       facturas,
       reload,
@@ -182,7 +192,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       proyectoById,
       facturasDe,
     }),
-    [loading, error, store.kind, cuentaGoogle, conectarGoogle, desconectarGoogle, proyectos, facturas, reload, saveProyecto, deleteProyecto, saveFactura, deleteFactura, proyectoById, facturasDe],
+    [loading, error, store.kind, cuentaGoogle, conectarGoogle, desconectarGoogle, obtenerTokenGoogle, proyectos, facturas, reload, saveProyecto, deleteProyecto, saveFactura, deleteFactura, proyectoById, facturasDe],
   )
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
