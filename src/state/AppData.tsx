@@ -11,10 +11,12 @@ import {
 import type { FacturaRecibida, Proyecto } from '../lib/types'
 import { createStore, type DataStore } from '../lib/storage'
 import { MOCK_FACTURAS, MOCK_PROYECTOS } from '../lib/mock'
+import { conectar as conectarGis, ensureCarpeta, getEmail } from '../lib/google'
 
 export interface CuentaGoogle {
   conectada: boolean
   email: string
+  folderId?: string
 }
 
 const K_CUENTA = 'recepcion.cuentaGoogle'
@@ -33,7 +35,7 @@ interface AppDataValue {
   error: string | null
   storeKind: 'local' | 'sheets'
   cuentaGoogle: CuentaGoogle
-  conectarGoogle: (email?: string) => void
+  conectarGoogle: () => Promise<void>
   desconectarGoogle: () => void
   proyectos: Proyecto[]
   facturas: FacturaRecibida[]
@@ -59,8 +61,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [facturas, setFacturas] = useState<FacturaRecibida[]>([])
   const [cuentaGoogle, setCuentaGoogle] = useState<CuentaGoogle>(() => leerCuenta())
 
-  const conectarGoogle = useCallback((email?: string) => {
-    const cuenta = { conectada: true, email: email || 'contador@gmail.com' }
+  const conectarGoogle = useCallback(async () => {
+    const cfg = await fetch('/api/config').then((r) => r.json())
+    if (!cfg.googleClientId) throw new Error('Falta GOOGLE_CLIENT_ID en el servidor')
+    const token = await conectarGis(cfg.googleClientId)
+    const email = await getEmail(token)
+    const folderId = await ensureCarpeta(token, `Recepción CO — ${email}`)
+    const cuenta: CuentaGoogle = { conectada: true, email, folderId }
     localStorage.setItem(K_CUENTA, JSON.stringify(cuenta))
     setCuentaGoogle(cuenta)
   }, [])

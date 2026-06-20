@@ -16,7 +16,20 @@ function Pendiente({ titulo, children }: { titulo: string; children: React.React
 
 export default function Configuracion() {
   const { cuentaGoogle, conectarGoogle, desconectarGoogle } = useAppData()
-  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function conectar() {
+    setLoading(true)
+    setError(null)
+    try {
+      await conectarGoogle()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   function reiniciarDemo() {
     if (!confirm('¿Borrar los datos de prueba y volver a sembrarlos?')) return
@@ -48,9 +61,11 @@ export default function Configuracion() {
               <Button variant="secondary" onClick={desconectarGoogle}>Desconectar</Button>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <Input type="email" placeholder="contador@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <Button onClick={() => conectarGoogle(email.trim() || undefined)}>Conectar con Google</Button>
+            <div>
+              <Button onClick={conectar} disabled={loading}>
+                {loading ? 'Conectando con Google…' : 'Conectar con Google'}
+              </Button>
+              {error && <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             </div>
           )}
         </Card>

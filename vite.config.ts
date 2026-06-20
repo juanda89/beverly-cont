@@ -22,6 +22,12 @@ export default defineConfig(({ mode }) => {
       {
         name: 'dev-api',
         configureServer(server) {
+          // Config pública (Client ID de Google)
+          server.middlewares.use('/api/config', (_req, res) => {
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ googleClientId: env.GOOGLE_CLIENT_ID || '' }))
+          })
+
           // OCR doble
           server.middlewares.use('/api/ocr', async (req, res) => {
             if (req.method !== 'POST') { res.statusCode = 405; res.end('Método no permitido'); return }

@@ -22,7 +22,21 @@ function nuevoProyecto(): Proyecto {
 /** Pantalla de onboarding: conectar Google es obligatorio antes de todo. */
 function OnboardingGoogle() {
   const { conectarGoogle } = useAppData()
-  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function go() {
+    setLoading(true)
+    setError(null)
+    try {
+      await conectarGoogle()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-md">
       <Card className="p-8 text-center">
@@ -31,23 +45,16 @@ function OnboardingGoogle() {
         </div>
         <h1 className="text-xl font-semibold text-slate-900">Conecta tu cuenta de Google</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Es el primer paso. Tus proyectos, facturas y datos se guardan en una carpeta de tu
-          propio Google Drive. Sin conectar tu cuenta no es posible crear proyectos.
+          Es el primer paso. La app crea una carpeta en tu propio Google Drive donde se guardan
+          tus clientes y facturas. Sin conectar no es posible crear proyectos.
         </p>
-        <div className="mt-6 space-y-2 text-left">
-          <Field label="Tu correo de Google">
-            <Input
-              type="email"
-              placeholder="contador@gmail.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </Field>
-          <Button className="w-full" onClick={() => conectarGoogle(email.trim() || undefined)}>
-            Conectar con Google
+        <div className="mt-6 space-y-2">
+          <Button className="w-full" onClick={go} disabled={loading}>
+            {loading ? 'Conectando con Google…' : 'Conectar con Google'}
           </Button>
+          {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <p className="text-center text-xs text-slate-400">
-            En producción abre el consentimiento OAuth de Google (Drive + correo). En la demo se simula.
+            Se abre el consentimiento de Google (permiso para crear archivos en tu Drive).
           </p>
         </div>
       </Card>
