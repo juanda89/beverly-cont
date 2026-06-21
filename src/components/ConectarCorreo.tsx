@@ -48,6 +48,7 @@ export default function ConectarCorreo({
           tipo,
           email: email.trim(),
           appPassword: appPassword.trim(),
+          spreadsheetId: proyecto.spreadsheetId,
         }),
       })
       const json = await res.json()
